@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>OS Project C3 - Scheduling</title>
+
+<style>
+    *{
+        margin:0;
+        padding:0;
+        box-sizing:border-box;
+    }
+
+    body{
+        font-family: Arial, sans-serif;
+        background:#f4f4f4;
+        padding:20px;
+        color:#2f2f2f;
+    }
+
+    .container{
+        max-width:1200px;
+        margin:auto;
+        background:#ffffff;
+        padding:20px;
+        border:2px solid #444;
+    }
+
+    h1{
+        text-align:center;
+        margin-bottom:20px;
+        color:#333;
+    }
+
+    .panel{
+        border:1px solid #444;
+        padding:15px;
+        margin-bottom:20px;
+    }
+
+    .controls{
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        align-items:flex-end;
+    }
+
+    .input-group{
+        display:flex;
+        flex-direction:column;
+        flex:1;
+    }
+
+    label{
+        margin-bottom:5px;
+        font-weight:bold;
+    }
+
+    input{
+        padding:10px;
+        border:1px solid #444;
+        outline:none;
+        background:#fff;
+        color:#000;
+    }
+
+    button{
+        padding:10px 20px;
+        border:1px solid #444;
+        background:#2f2f2f;
+        color:#fff;
+        cursor:pointer;
+    }
+
+    button:hover{
+        opacity:0.85;
+    }
+
+    .comparison{
+        display:flex;
+        gap:15px;
+        flex-wrap:wrap;
+    }
+
+    .algo-box{
+        flex:1;
+        min-width:450px;
+        border:1px solid #444;
+        padding:15px;
+    }
+
+    h2{
+        margin-bottom:10px;
+        color:#2f2f2f;
+    }
+
+    table{
+        width:100%;
+        border-collapse:collapse;
+        margin-top:10px;
+    }
+
+    th,td{
+        border:1px solid #444;
+        padding:8px;
+        text-align:center;
+    }
+
+    th{
+        background:#2f2f2f;
+        color:#fff;
+    }
+
+    .metrics{
+        margin-top:10px;
+        padding:10px;
+        border:1px solid #444;
+        font-weight:bold;
+    }
+
+    .gantt-wrapper{
+        display:flex;
+        overflow-x:auto;
+        padding:15px 0 25px;
+        gap:2px;
+    }
+
+    .gantt-block{
+        min-width:50px;
+        height:55px;
+        background:#2f2f2f;
+        color:#fff;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        position:relative;
+        border:1px solid #000;
+    }
+
+    .time, .start{
+        position:absolute;
+        bottom:-20px;
+        font-size:12px;
+        color:#000;
+    }
+
+    .time{ right:0; }
+    .start{ left:0; }
+
+    .error-box{
+        display:none;
+        padding:10px;
+        border:1px solid #444;
+        margin-bottom:10px;
+        color:#000;
+        background:#eee;
+    }
+
+    /* ── Comparison & Summary Sections ── */
+    .section-title{
+        font-size:18px;
+        font-weight:bold;
+        margin:25px 0 10px;
+        padding-bottom:5px;
+        border-bottom:2px solid #444;
+        color:#2f2f2f;
+    }
+
+    #comparison-section,
+    #summary-section{
+        display:none;
+        margin-top:10px;
+    }
+
+    .better-prio   { background:#d4edda !important; color:#155724 !important; }
+    .better-rr     { background:#cce5ff !important; color:#004085 !important; }
+    .better-tie    { background:#fff3cd !important; color:#856404 !important; }
+
+    .summary-note{
+        margin-top:10px;
+        padding:10px;
+        border:1px solid #444;
+        background:#f9f9f9;
+        font-size:13px;
+        line-height:1.6;
+    }
+
+    .legend{
+        display:flex;
+        gap:15px;
+        flex-wrap:wrap;
+        margin-bottom:10px;
+        font-size:13px;
+    }
+
+    .legend-item{
+        display:flex;
+        align-items:center;
+        gap:6px;
+    }
+
+    .legend-color{
+        width:14px;
+        height:14px;
+        border:1px solid #444;
+        display:inline-block;
+    }
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>OS Project C3 - Scheduling</h1>
+
+<div class="panel">
+
+<div id="error-box" class="error-box"></div>
+
+<div class="controls">
+
+<div class="input-group">
+<label>Processes (AT,BT,PR)</label>
+<input id="processData" value="0,5,2 2,3,1 4,1,3">
+</div>
+
+<div class="input-group" style="max-width:120px;">
+<label>Quantum</label>
+<input type="number" id="quantum" value="2" min="1">
+</div>
+
+<button onclick="runProjectC3()">Run</button>
+
+</div>
+
+</div>
+
+<div class="comparison">
+
+<div class="algo-box">
+<h2>Preemptive Priority</h2>
+<div id="prio-gantt" class="gantt-wrapper"></div>
+<table id="prio-table">
+<thead>
+<tr>
+<th>PID</th><th>AT</th><th>BT</th><th>PR</th><th>WT</th><th>TAT</th><th>RT</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div id="prio-metrics" class="metrics"></div>
+</div>
+
+<div class="algo-box">
+<h2>Round Robin</h2>
+<div id="rr-gantt" class="gantt-wrapper"></div>
+<table id="rr-table">
+<thead>
+<tr>
+<th>PID</th><th>AT</th><th>BT</th><th>PR</th><th>WT</th><th>TAT</th><th>RT</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div id="rr-metrics" class="metrics"></div>
+</div>
+
+</div>
+
+<!-- ══════════════ COMPARISON TABLE ══════════════ -->
+<div id="comparison-section">
+    <div class="section-title">Algorithms Comparison</div>
+
+    <div class="legend">
+        <div class="legend-item"><span class="legend-color" style="background:#d4edda;"></span> Better in Preemptive Priority</div>
+        <div class="legend-item"><span class="legend-color" style="background:#cce5ff;"></span> Better in Round Robin</div>
+        <div class="legend-item"><span class="legend-color" style="background:#fff3cd;"></span> Tie</div>
+    </div>
+
+    <table id="comparison-table">
+        <thead>
+            <tr>
+                <th>Metric</th>
+                <th>Preemptive Priority</th>
+                <th>Round Robin</th>
+                <th>Winner</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- ══════════════ FINAL CONCLUSION ══════════════ -->
+<div id="conclusion-section" class="panel" style="display:none; margin-top:20px;">
+    <div class="section-title" style="margin-top:0;">Final Conclusion</div>
+    <p style="margin-bottom:12px; line-height:1.7;">
+        <strong>Round Robin</strong> guarantees that no process is starved — every process receives CPU time in a cyclic, time-bounded manner regardless of priority. This makes it ideal for interactive and time-sharing systems where fairness and consistent response time matter more than urgency.
+    </p>
+    <p style="margin-bottom:12px; line-height:1.7;">
+        <strong>Preemptive Priority Scheduling</strong> ensures that high-priority (urgent) processes run as soon as they arrive, even preempting a currently running lower-priority process. This is critical for real-time and mission-critical systems, but introduces a risk of starvation for low-priority processes if higher-priority ones arrive continuously.
+    </p>
+    <p style="line-height:1.7;">
+        The optimal choice depends on the workload: choose <strong>Round Robin</strong> for balanced fairness across all processes; choose <strong>Preemptive Priority</strong> when service differentiation, urgency, and task importance are the primary scheduling goals.
+    </p>
+</div>
+
+</div>
+
+<script>
+
+/* ─── globals to hold last results ─── */
+let lastPrio = null, lastRR = null;
+
+function showError(msg){
+    const e = document.getElementById("error-box");
+    e.style.display="block";
+    e.innerText=msg;
+}
+
+function hideError(){
+    document.getElementById("error-box").style.display="none";
+}
+
+function runProjectC3(){
+    hideError();
+
+    const input=document.getElementById("processData").value.trim();
+    const q=Number(document.getElementById("quantum").value);
+
+    if(!input) return showError("Empty input");
+    if(isNaN(q)||q<=0) return showError("Invalid quantum");
+
+    let raw=input.split(" ");
+    let p=[];
+
+    for(let i=0;i<raw.length;i++){
+        let a=raw[i].split(",");
+        if(a.length!==3) return showError("Format AT,BT,PR");
+
+        let at=Number(a[0]),bt=Number(a[1]),pr=Number(a[2]);
+
+        if(at<0) return showError("AT negative not allowed");
+        if(bt<=0) return showError("BT must be >0");
+        if(pr<0) return showError("Priority negative not allowed");
+
+        p.push({id:i+1,at,bt,prio:pr,remaining:bt,rt:-1});
+    }
+
+    lastPrio = priority(p.map(x=>({...x})));
+    lastRR   = rr(p.map(x=>({...x})),q);
+
+    renderComparison(lastPrio, lastRR);
+}
+
+function priority(p){
+    let t=0,c=0,n=p.length,g=[];
+
+    while(c<n){
+        let idx=-1,b=1e9;
+
+        for(let i=0;i<n;i++){
+            if(p[i].at<=t && p[i].remaining>0 && p[i].prio<b){
+                b=p[i].prio; idx=i;
+            }
+        }
+
+        if(idx==-1){t++;continue;}
+
+        let x=p[idx];
+        if(x.rt==-1) x.rt=t-x.at;
+
+        g.push({id:x.id,start:t,end:t+x.bt});
+        t+=x.bt;
+        x.remaining=0;
+        x.tat=t-x.at;
+        x.wt=x.tat-x.bt;
+        c++;
+    }
+
+    render("prio",p,g);
+    return p;
+}
+
+function rr(p,q){
+    let t=0,c=0,n=p.length,qu=[],g=[],v=Array(n).fill(false);
+
+    while(c<n){
+
+        for(let i=0;i<n;i++){
+            if(p[i].at<=t && !v[i] && p[i].remaining>0){
+                qu.push(i); v[i]=true;
+            }
+        }
+
+        if(qu.length==0){t++;continue;}
+
+        let i=qu.shift();
+        let x=p[i];
+
+        if(x.rt==-1) x.rt=t-x.at;
+
+        let s=Math.min(q,x.remaining);
+        g.push({id:x.id,start:t,end:t+s});
+
+        t+=s;
+        x.remaining-=s;
+
+        for(let i=0;i<n;i++){
+            if(p[i].at<=t && !v[i] && p[i].remaining>0){
+                qu.push(i); v[i]=true;
+            }
+        }
+
+        if(x.remaining>0) qu.push(i);
+        else{
+            x.tat=t-x.at;
+            x.wt=x.tat-x.bt;
+            c++;
+        }
+    }
+
+    render("rr",p,g);
+    return p;
+}
+
+function render(id,p,g){
+    let tb=document.querySelector(`#${id}-table tbody`);
+    let gg=document.getElementById(`${id}-gantt`);
+
+    tb.innerHTML=""; gg.innerHTML="";
+
+    p.forEach(x=>{
+        tb.innerHTML+=`<tr><td>${x.id}</td><td>${x.at}</td><td>${x.bt}</td><td>${x.prio}</td><td>${x.wt||0}</td><td>${x.tat||0}</td><td>${x.rt}</td></tr>`;
+    });
+
+    g.forEach(x=>{
+        gg.innerHTML+=`<div class="gantt-block">${x.id}<span class="time">${x.end}</span></div>`;
+    });
+
+    let aw=p.reduce((a,b)=>a+(b.wt||0),0)/p.length;
+    let at=p.reduce((a,b)=>a+(b.tat||0),0)/p.length;
+
+    document.getElementById(`${id}-metrics`).innerText=
+        `Avg WT: ${aw.toFixed(2)} | Avg TAT: ${at.toFixed(2)}`;
+}
+
+/* ─────────────────────────────────────────
+   Comparison + Summary rendering
+───────────────────────────────────────── */
+function avg(arr, key){ return arr.reduce((s,x)=>s+(x[key]||0),0)/arr.length; }
+
+function renderComparison(prio, rr){
+
+    const prioWT  = avg(prio,'wt'),  rrWT  = avg(rr,'wt');
+    const prioTAT = avg(prio,'tat'), rrTAT = avg(rr,'tat');
+    const prioRT  = avg(prio,'rt'),  rrRT  = avg(rr,'rt');
+
+    /* context switches count = gantt blocks (already rendered) */
+    const prioCS = document.querySelectorAll('#prio-gantt .gantt-block').length;
+    const rrCS   = document.querySelectorAll('#rr-gantt .gantt-block').length;
+
+    const rows = [
+        { metric:'Avg Waiting Time (WT)',      pv:prioWT,  rv:rrWT,  fmt:'time', lowerBetter:true },
+        { metric:'Avg Turnaround Time (TAT)',   pv:prioTAT, rv:rrTAT, fmt:'time', lowerBetter:true },
+        { metric:'Avg Response Time (RT)',      pv:prioRT,  rv:rrRT,  fmt:'time', lowerBetter:true },
+        { metric:'Context Switches',            pv:prioCS,  rv:rrCS,  fmt:'int',  lowerBetter:true },
+    ];
+
+    const tb = document.querySelector('#comparison-table tbody');
+    tb.innerHTML = '';
+
+    rows.forEach(r=>{
+        let pBetter = r.lowerBetter ? r.pv < r.rv : r.pv > r.rv;
+        let rBetter = r.lowerBetter ? r.rv < r.pv : r.rv > r.pv;
+        let tie     = r.pv === r.rv;
+
+        let pClass  = tie ? 'better-tie' : (pBetter ? 'better-prio' : '');
+        let rClass  = tie ? 'better-tie' : (rBetter ? 'better-rr'   : '');
+        let wClass  = tie ? 'better-tie' : (pBetter ? 'better-prio' : 'better-rr');
+
+        let pVal = r.fmt==='time' ? r.pv.toFixed(2) : r.pv;
+        let rVal = r.fmt==='time' ? r.rv.toFixed(2) : r.rv;
+        let winner = tie ? 'Tie' : (pBetter ? 'Preemptive Priority' : 'Round Robin');
+
+        tb.innerHTML += `
+            <tr>
+                <td>${r.metric}</td>
+                <td class="${pClass}">${pVal}</td>
+                <td class="${rClass}">${rVal}</td>
+                <td class="${wClass}">${winner}</td>
+            </tr>`;
+    });
+
+    /* Show sections */
+    document.getElementById('comparison-section').style.display = 'block';
+    document.getElementById('conclusion-section').style.display = 'block';
+}
+
+</script>
+
+</body>
+</html>
