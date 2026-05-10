@@ -270,7 +270,6 @@
 
 </div>
 
-<!-- ══════════════ COMPARISON TABLE ══════════════ -->
 <div id="comparison-section">
     <div class="section-title">Algorithms Comparison</div>
 
@@ -293,7 +292,6 @@
     </table>
 </div>
 
-<!-- ══════════════ FINAL CONCLUSION ══════════════ -->
 <div id="conclusion-section" class="panel" style="display:none; margin-top:20px;">
     <div class="section-title" style="margin-top:0;">Final Conclusion</div>
     <p style="margin-bottom:12px; line-height:1.7;">
@@ -345,6 +343,11 @@ function runProjectC3(){
         if(at<0) return showError("AT negative not allowed");
         if(bt<=0) return showError("BT must be >0");
         if(pr<0) return showError("Priority negative not allowed");
+        
+        // ─── STRICT INTEGER VALIDATION FOR PRIORITY ───
+        if(!Number.isInteger(pr)){
+            return showError("Priority (PR) must be an integer. Decimals are not allowed.");
+        }
 
         p.push({id:i+1,at,bt,prio:pr,remaining:bt,rt:-1});
     }
@@ -355,32 +358,67 @@ function runProjectC3(){
     renderComparison(lastPrio, lastRR);
 }
 
+/* ────────────────────────────────────────────────────────
+   TRULY PREEMPTIVE PRIORITY SCHEDULING (1ms step execution)
+──────────────────────────────────────────────────────── */
 function priority(p){
-    let t=0,c=0,n=p.length,g=[];
+    let t=0, c=0, n=p.length, g=[];
+    let lastActiveId = -1;
+    let blockStart = 0;
 
-    while(c<n){
-        let idx=-1,b=1e9;
+    while(c < n){
+        let idx = -1, b = 1e9;
 
-        for(let i=0;i<n;i++){
-            if(p[i].at<=t && p[i].remaining>0 && p[i].prio<b){
-                b=p[i].prio; idx=i;
+        // Find the process that has arrived, is not finished, and has the highest priority (lowest value)
+        for(let i=0; i<n; i++){
+            if(p[i].at <= t && p[i].remaining > 0 && p[i].prio < b){
+                b = p[i].prio; 
+                idx = i;
             }
         }
 
-        if(idx==-1){t++;continue;}
+        // If no process has arrived yet
+        if(idx == -1){
+            // If we were running a process and now CPU goes idle, close its Gantt block
+            if(lastActiveId !== -1){
+                g.push({id: lastActiveId, start: blockStart, end: t});
+                lastActiveId = -1;
+            }
+            t++;
+            continue;
+        }
 
-        let x=p[idx];
-        if(x.rt==-1) x.rt=t-x.at;
+        let x = p[idx];
 
-        g.push({id:x.id,start:t,end:t+x.bt});
-        t+=x.bt;
-        x.remaining=0;
-        x.tat=t-x.at;
-        x.wt=x.tat-x.bt;
-        c++;
+        // Record Response Time on first CPU allocation
+        if(x.rt == -1) x.rt = t - x.at;
+
+        // Gantt Chart tracking: If execution switches to a different process
+        if(x.id !== lastActiveId){
+            if(lastActiveId !== -1){
+                g.push({id: lastActiveId, start: blockStart, end: t});
+            }
+            lastActiveId = x.id;
+            blockStart = t;
+        }
+
+        // Execute for exactly 1 unit of time
+        x.remaining--;
+        t++;
+
+        // If process finishes execution
+        if(x.remaining === 0){
+            x.tat = t - x.at;
+            x.wt = x.tat - x.bt;
+            c++;
+            
+            // Push final block execution details
+            g.push({id: x.id, start: blockStart, end: t});
+            lastActiveId = -1; // Reset to force new block creation
+        }
     }
 
-    render("prio",p,g);
+    render("prio", p, g);
     return p;
 }
 
